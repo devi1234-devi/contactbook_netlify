@@ -2,7 +2,8 @@ import { Client } from "pg";
 
 export async function handler(event) {
   const client = new Client({
-    connectionString: process.env.DATABASE_URL, // Neon DB URL from Netlify env vars
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }, // required for Neon
   });
 
   await client.connect();
