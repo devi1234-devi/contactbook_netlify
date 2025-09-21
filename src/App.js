@@ -6,15 +6,19 @@ function App() {
   const [contacts, setContacts] = useState([]);
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const LIMIT = 5; // must match backend pagination limit
 
+  // Fetch contacts whenever page changes
   useEffect(() => {
     fetchContacts(page);
   }, [page]);
 
   const fetchContacts = async (p = 1) => {
     try {
-      const res = await axios.get(`/.netlify/functions/contacts?page=${p}`);
-      setContacts(res.data);
+      const res = await axios.get(`/.netlify/functions/contacts?page=${p}&limit=${LIMIT}`);
+      setContacts(res.data.contacts || []);
+      setHasNextPage(res.data.hasNextPage);
     } catch (err) {
       console.error(err);
       alert("Failed to fetch contacts");
@@ -32,29 +36,44 @@ function App() {
     return true;
   };
 
+  // Add a new contact
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
       alert("Please enter valid inputs (email format, 10-digit phone).");
       return;
     }
+
     try {
-      const res = await axios.post("/.netlify/functions/contacts", form);
-      // Prepend new contact to current list
-      setContacts([res.data, ...contacts]);
+      await axios.post("/.netlify/functions/contacts", form);
       setForm({ name: "", email: "", phone: "" });
+
+      // If on page 1, prepend for instant feedback, otherwise refresh page
+      if (page === 1) {
+        fetchContacts(1);
+      } else {
+        setPage(1); // jump to first page to show new contact
+      }
     } catch (err) {
       console.error(err);
       alert("Failed to add contact");
     }
   };
 
+  // Delete a contact
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this contact?")) return;
 
     try {
       await axios.delete("/.netlify/functions/contacts", { data: { id } });
-      setContacts(contacts.filter((c) => c.id !== id));
+
+      // If page becomes empty after deletion, move to previous page if possible
+      const newContacts = contacts.filter((c) => c.id !== id);
+      if (newContacts.length === 0 && page > 1) {
+        setPage(page - 1);
+      } else {
+        fetchContacts(page); // refresh current page
+      }
     } catch (err) {
       console.error(err);
       alert("Failed to delete");
@@ -88,9 +107,13 @@ function App() {
       </form>
 
       <div className="pagination">
-        <button onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
+        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+          Prev
+        </button>
         <span>Page {page}</span>
-        <button onClick={() => setPage((p) => p + 1)}>Next</button>
+        <button onClick={() => hasNextPage && setPage((p) => p + 1)} disabled={!hasNextPage}>
+          Next
+        </button>
       </div>
 
       <table className="contact-table">

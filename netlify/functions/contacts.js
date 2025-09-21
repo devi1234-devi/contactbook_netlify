@@ -3,7 +3,7 @@ import { Client } from "pg";
 export async function handler(event) {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, // required for Neon
+    ssl: { rejectUnauthorized: false },
   });
 
   await client.connect();
@@ -32,11 +32,31 @@ export async function handler(event) {
   }
 
   if (event.httpMethod === "GET") {
-    const result = await client.query("SELECT * FROM contacts ORDER BY id DESC");
+    // Read page & limit from query params
+    const page = parseInt(event.queryStringParameters?.page) || 1;
+    const limit = parseInt(event.queryStringParameters?.limit) || 5;
+    const offset = (page - 1) * limit;
+
+    // Fetch contacts with limit + offset
+    const result = await client.query(
+      "SELECT * FROM contacts ORDER BY id DESC LIMIT $1 OFFSET $2",
+      [limit, offset]
+    );
+
+    // Check if next page exists
+    const nextCheck = await client.query(
+      "SELECT COUNT(*) FROM contacts"
+    );
+    const totalContacts = parseInt(nextCheck.rows[0].count, 10);
+    const hasNextPage = page * limit < totalContacts;
+
     await client.end();
     return {
       statusCode: 200,
-      body: JSON.stringify(result.rows),
+      body: JSON.stringify({
+        contacts: result.rows,
+        hasNextPage,
+      }),
     };
   }
 
@@ -51,7 +71,10 @@ export async function handler(event) {
       };
     }
 
-    const result = await client.query("DELETE FROM contacts WHERE id = $1 RETURNING *", [id]);
+    const result = await client.query(
+      "DELETE FROM contacts WHERE id = $1 RETURNING *",
+      [id]
+    );
     await client.end();
 
     if (result.rowCount === 0) {
