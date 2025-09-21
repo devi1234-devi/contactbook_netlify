@@ -40,6 +40,33 @@ export async function handler(event) {
     };
   }
 
+  if (event.httpMethod === "DELETE") {
+    const { id } = JSON.parse(event.body);
+
+    if (!id) {
+      await client.end();
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Contact ID required for deletion" }),
+      };
+    }
+
+    const result = await client.query("DELETE FROM contacts WHERE id = $1 RETURNING *", [id]);
+    await client.end();
+
+    if (result.rowCount === 0) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: "Contact not found" }),
+      };
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true, deleted: result.rows[0] }),
+    };
+  }
+
   await client.end();
   return { statusCode: 405, body: "Method Not Allowed" };
 }

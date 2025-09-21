@@ -51,8 +51,9 @@ function App() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this contact?")) return;
+
     try {
-      await axios.delete(`/.netlify/functions/contacts/${id}`);
+      await axios.delete("/.netlify/functions/contacts", { data: { id } });
       setContacts(contacts.filter((c) => c.id !== id));
     } catch (err) {
       console.error(err);
