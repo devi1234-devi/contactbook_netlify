@@ -1,101 +1,129 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "./App.css";
 
 function App() {
   const [contacts, setContacts] = useState([]);
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [page, setPage] = useState(1);
 
-  // Fetch contacts from Netlify Function
-  const loadContacts = async () => {
+  useEffect(() => {
+    fetchContacts(page);
+  }, [page]);
+
+  const fetchContacts = async (p = 1) => {
     try {
-      const res = await fetch("/.netlify/functions/contacts");
-      const data = await res.json();
-      setContacts(data);
+      const res = await axios.get(`/.netlify/functions/contacts?page=${p}`);
+      setContacts(res.data);
     } catch (err) {
-      console.error("Error fetching contacts:", err);
+      console.error(err);
+      alert("Failed to fetch contacts");
     }
   };
 
-  // Load contacts on mount
-  useEffect(() => {
-    loadContacts();
-  }, []);
-
-  // Handle form input
-  const handleChange = (e) => {
+  const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
+
+  const validate = () => {
+    if (!form.name || !form.email || !form.phone) return false;
+    const emailRegex = /\S+@\S+\.\S+/;
+    if (!emailRegex.test(form.email)) return false;
+    if (!/^\d{10}$/.test(form.phone)) return false;
+    return true;
   };
 
-  // Add a new contact
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) {
+      alert("Please enter valid inputs (email format, 10-digit phone).");
+      return;
+    }
     try {
-      await fetch("/.netlify/functions/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const res = await axios.post("/.netlify/functions/contacts", form);
+      // Prepend new contact to current list
+      setContacts([res.data, ...contacts]);
       setForm({ name: "", email: "", phone: "" });
-      loadContacts(); // refresh list
     } catch (err) {
-      console.error("Error adding contact:", err);
+      console.error(err);
+      alert("Failed to add contact");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this contact?")) return;
+    try {
+      await axios.delete(`/.netlify/functions/contacts/${id}`);
+      setContacts(contacts.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete");
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-6">
-      <h1 className="text-2xl font-bold mb-6">📒 Contact Book</h1>
+    <div className="container">
+      <h2>Contact Book</h2>
 
-      {/* Contact Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-2xl shadow-md w-full max-w-md"
-      >
+      <form onSubmit={handleSubmit} className="form">
         <input
           name="name"
+          placeholder="Name"
           value={form.name}
           onChange={handleChange}
-          placeholder="Name"
-          required
-          className="w-full p-2 mb-3 border rounded"
         />
         <input
           name="email"
+          placeholder="Email"
           value={form.email}
           onChange={handleChange}
-          placeholder="Email"
-          type="email"
-          className="w-full p-2 mb-3 border rounded"
         />
         <input
           name="phone"
+          placeholder="Phone (10 digits)"
           value={form.phone}
           onChange={handleChange}
-          placeholder="Phone"
-          className="w-full p-2 mb-3 border rounded"
         />
-        <button
-          type="submit"
-          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-        >
-          Add Contact
-        </button>
+        <button type="submit">Add Contact</button>
       </form>
 
-      {/* Contact List */}
-      <ul className="mt-6 w-full max-w-md">
-        {contacts.map((c) => (
-          <li
-            key={c.id}
-            className="bg-white p-4 rounded-lg shadow mb-3 flex justify-between"
-          >
-            <div>
-              <p className="font-semibold">{c.name}</p>
-              <p className="text-sm text-gray-600">{c.email}</p>
-              <p className="text-sm text-gray-600">{c.phone}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <div className="pagination">
+        <button onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
+        <span>Page {page}</span>
+        <button onClick={() => setPage((p) => p + 1)}>Next</button>
+      </div>
+
+      <table className="contact-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {contacts.length === 0 ? (
+            <tr>
+              <td colSpan="4" style={{ textAlign: "center" }}>
+                No contacts on this page
+              </td>
+            </tr>
+          ) : (
+            contacts.map((c) => (
+              <tr key={c.id}>
+                <td>{c.name}</td>
+                <td>{c.email}</td>
+                <td>{c.phone}</td>
+                <td>
+                  <button className="del" onClick={() => handleDelete(c.id)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
