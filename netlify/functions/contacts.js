@@ -34,7 +34,7 @@ export async function handler(event) {
   if (event.httpMethod === "GET") {
     // Read page & limit from query params
     const page = parseInt(event.queryStringParameters?.page) || 1;
-    const limit = parseInt(event.queryStringParameters?.limit) || 5;
+    const limit = parseInt(event.queryStringParameters?.limit) || 10;
     const offset = (page - 1) * limit;
 
     // Fetch contacts with limit + offset

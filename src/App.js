@@ -7,7 +7,7 @@ function App() {
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
-  const LIMIT = 5; // must match backend pagination limit
+  const LIMIT = 10; // must match backend pagination limit
 
   // Fetch contacts whenever page changes
   useEffect(() => {
